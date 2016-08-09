@@ -174,6 +174,7 @@ var rpcHandlersBeforeInit = map[string]commandHandler{
 	"validateaddress":       handleValidateAddress,
 	"verifychain":           handleVerifyChain,
 	"verifymessage":         handleVerifyMessage,
+	"estimatefee":           handleEstimateFee,
 }
 
 // list of commands that we recognize, but for which btcd has no support because
@@ -226,7 +227,6 @@ var rpcAskWallet = map[string]struct{}{
 
 // Commands that are currently unimplemented, but should ultimately be.
 var rpcUnimplemented = map[string]struct{}{
-	"estimatefee":       {},
 	"estimatepriority":  {},
 	"getblockchaininfo": {},
 	"getchaintips":      {},
@@ -3664,6 +3664,13 @@ func handleVerifyMessage(s *rpcServer, cmd interface{}, closeChan <-chan struct{
 
 	// Return boolean if addresses match.
 	return address.EncodeAddress() == c.Address, nil
+}
+
+// handleEstimateFee handles estimatefee commands.
+func handleEstimateFee(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.EstimateFeeCmd)
+
+	return s.server.EstimateFee(c.NumBlocks)
 }
 
 // rpcServer holds the items the rpc server may need to access (config,
