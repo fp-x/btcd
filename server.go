@@ -176,6 +176,10 @@ type server struct {
 	// do not need to be protected for concurrent access.
 	txIndex   *indexers.TxIndex
 	addrIndex *indexers.AddrIndex
+
+	// The fee estimator keeps track of how long transactions are left in
+	// the mempool before they are mined into blocks.
+	feeEstimator *mempool.FeeEstimator
 }
 
 // serverPeer extends the peer to maintain state shared by the server and
@@ -1870,6 +1874,17 @@ func (s *server) UpdatePeerHeights(latestBlkHash *chainhash.Hash, latestHeight i
 	}
 }
 
+// EstimateFee estimates the fee required to get a transaction mined before
+// a given number of confirmations.
+func (s *server) EstimateFee(numBlocks int64) (float64, error) {
+
+	if s.feeEstimator == nil {
+		return -1, errors.New("Fee estimation not turned on.")
+	}
+	
+	return s.feeEstimator.EstimateFee(uint32(numBlocks)), nil
+}
+
 // rebroadcastHandler keeps track of user submitted inventories that we have
 // sent out but have not yet made it into a block. We periodically rebroadcast
 // them in case our peers restarted or otherwise lost track of them.
@@ -2306,6 +2321,7 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		timeSource:           blockchain.NewMedianTime(),
 		services:             services,
 		sigCache:             txscript.NewSigCache(cfg.SigCacheMaxSize),
+		feeEstimator:         mempool.NewFeeEstimator(0),
 	}
 
 	// Create the transaction and address indexes if needed.
@@ -2362,6 +2378,7 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		MedianTimePast: func() time.Time { return bm.chain.BestSnapshot().MedianTime },
 		SigCache:       s.sigCache,
 		AddrIndex:      s.addrIndex,
+		FeeEstimator:   s.feeEstimator,
 	}
 	s.txMemPool = mempool.New(&txC)
 
