@@ -1216,6 +1216,11 @@ func (b *blockManager) handleNotifyMsg(notification *blockchain.Notification) {
 			b.server.AnnounceNewTransactions(acceptedTxs)
 		}
 
+		// Register block with the fee estimator, if it exists.
+		if b.server.feeEstimator != nil {
+			b.server.feeEstimator.RecordBlock(block)
+		}
+
 		if r := b.server.rpcServer; r != nil {
 			// Now that this block is in the blockchain we can mark
 			// all the transactions (except the coinbase) as no
@@ -1248,6 +1253,13 @@ func (b *blockManager) handleNotifyMsg(notification *blockchain.Notification) {
 				// the transaction pool.
 				b.server.txMemPool.RemoveTransaction(tx, true)
 			}
+		}
+
+		// Rollback previous block recorded by the fee estimator.
+		// TODO instead of rolling back the previous block,
+		// check whether we are rolling back the correct one!
+		if b.server.feeEstimator != nil {
+			b.server.feeEstimator.Rollback()
 		}
 
 		// Notify registered websocket clients.
@@ -1387,6 +1399,7 @@ func (b *blockManager) Pause() chan<- struct{} {
 // newBlockManager returns a new bitcoin block manager.
 // Use Start to begin processing asynchronous block and inv updates.
 func newBlockManager(s *server, indexManager blockchain.IndexManager) (*blockManager, error) {
+
 	bm := blockManager{
 		server:          s,
 		rejectedTxns:    make(map[chainhash.Hash]struct{}),
