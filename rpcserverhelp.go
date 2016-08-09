@@ -525,6 +525,15 @@ var helpDescsEnUS = map[string]string{
 	"verifymessage-signature": "The base-64 encoded signature provided by the signer",
 	"verifymessage-message":   "The signed message",
 	"verifymessage--result0":  "Whether or not the signature verified",
+	
+	// EstimateFeeCmd help.
+	"estimatefee--synopsis": "Estimate the fee per kilobyte in satoshis " + 
+		"required for a transaction to be mined before a certain number of " + 
+		"blocks have been generated.", 
+	"estimatefee-numblocks": "The maximum number of blocks which can be " + 
+		"generated before the transaction is mined.",  
+	"estimatefee--result0": "Estimated fee per kilobyte in satoshis for a block to " + 
+		"be mined in the next NumBlocks blocks.", 
 
 	// -------- Websocket-specific help --------
 
@@ -621,6 +630,7 @@ var rpcResultTypes = map[string][]interface{}{
 	"validateaddress":       {(*btcjson.ValidateAddressChainResult)(nil)},
 	"verifychain":           {(*bool)(nil)},
 	"verifymessage":         {(*bool)(nil)},
+	"estimatefee":           {(*float64)(nil)}, 
 
 	// Websocket commands.
 	"session":                   {(*btcjson.SessionResult)(nil)},

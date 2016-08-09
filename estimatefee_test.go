@@ -31,20 +31,23 @@ type estimateFeeTester struct {
 	height int32
 }
 
-func (eft *estimateFeeTester) testTx(fee uint64) *mining.TxDesc {
+func (eft *estimateFeeTester) testTx(fee uint64) *mempoolTxDesc {
 	eft.version ++
-	return &mining.TxDesc{
-		Tx: btcutil.NewTx(&wire.MsgTx{
-			Version: eft.version,
-		}), 
-		Height: eft.height, 
-		Fee: int64(fee), 
+	return &mempoolTxDesc{
+		TxDesc : mining.TxDesc{
+			Tx: btcutil.NewTx(&wire.MsgTx{
+				Version: eft.version,
+			}), 
+			Height: eft.height, 
+			Fee: int64(fee), 
+		}, 
+		StartingPriority: 0, 
 	}
 }
 
-func expectedFeePerKb(t *mining.TxDesc) float64 {
-	size := uint32(t.Tx.MsgTx().SerializeSize())
-	fee := uint64(t.Fee)
+func expectedFeePerKb(t *mempoolTxDesc) float64 {
+	size := uint32(t.TxDesc.Tx.MsgTx().SerializeSize())
+	fee := uint64(t.TxDesc.Fee)
 	
 	return float64(1000 * fee)/float64(size)
 }
@@ -199,13 +202,13 @@ func (eft *estimateFeeTester) estimates(ef *feeEstimator) [estimateFeeBins]float
 }
 
 func (eft *estimateFeeTester) round(ef *feeEstimator, 
-	txHistory [][]*mining.TxDesc, blockHistory []*btcutil.Block, 
+	txHistory [][]*mempoolTxDesc, blockHistory []*btcutil.Block, 
 	estimateHistory [][estimateFeeBins]float64, 
-	txPerRound, txPerBlock, maxRollback uint32) ([][]*mining.TxDesc, 
+	txPerRound, txPerBlock, maxRollback uint32) ([][]*mempoolTxDesc, 
 	[]*btcutil.Block, [][estimateFeeBins]float64) {
 		
 	// generate new txs.
-	var newTxs []*mining.TxDesc
+	var newTxs []*mempoolTxDesc
 	for i := uint32(0); i < txPerRound; i++ {
 		newTx := eft.testTx(uint64(rand.Intn(1000000)))
 		ef.ObserveTransaction(newTx) 
@@ -266,7 +269,7 @@ func TestEstimateFeeRollback(t *testing.T) {
 	
 	ef := NewTestFeeEstimator(binSize, maxReplacements, uint32(stepsBack))
 	eft := estimateFeeTester{t: t}
-	txHistory := make([][]*mining.TxDesc, 0)
+	txHistory := make([][]*mempoolTxDesc, 0)
 	blockHistory := make([]*btcutil.Block, 0)
 	estimateHistory := [][estimateFeeBins]float64{eft.estimates(ef)}
 	

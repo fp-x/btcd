@@ -63,6 +63,10 @@ type mempoolConfig struct {
 	// indexing the unconfirmed transactions in the memory pool.
 	// This can be nil if the address index is not enabled.
 	AddrIndex *indexers.AddrIndex
+	
+	// FeeEstimatator provides a feeEstimator. If it is not nil, the mempool
+	// records all new transactions it observes into the feeEstimator. 
+	FeeEstimator *feeEstimator
 }
 
 // mempoolPolicy houses the policy (configuration parameters) which is used to
@@ -387,7 +391,7 @@ func (mp *txMemPool) RemoveDoubleSpends(tx *btcutil.Tx) {
 func (mp *txMemPool) addTransaction(utxoView *blockchain.UtxoViewpoint, tx *btcutil.Tx, height int32, fee int64) {
 	// Add the transaction to the pool and mark the referenced outpoints
 	// as spent by the pool.
-	mp.pool[*tx.Hash()] = &mempoolTxDesc{
+	txDesc := mempoolTxDesc{
 		TxDesc: mining.TxDesc{
 			Tx:     tx,
 			Added:  time.Now(),
@@ -396,6 +400,13 @@ func (mp *txMemPool) addTransaction(utxoView *blockchain.UtxoViewpoint, tx *btcu
 		},
 		StartingPriority: calcPriority(tx.MsgTx(), utxoView, height),
 	}
+	
+	// If the fee estimator is not null, record this tx for fee estimation.
+	if (mp.cfg.FeeEstimator != nil) {
+		mp.cfg.FeeEstimator.ObserveTransaction(&txDesc)
+	}
+	
+	mp.pool[*tx.Hash()] = &txDesc
 	for _, txIn := range tx.MsgTx().TxIn {
 		mp.outpoints[txIn.PreviousOutPoint] = tx
 	}
@@ -469,7 +480,7 @@ func (mp *txMemPool) FetchTransaction(txHash *chainhash.Hash) (*btcutil.Tx, erro
 	return nil, fmt.Errorf("transaction is not in the pool")
 }
 
-// maybeAcceptTransaction is the internal function which implements the public
+// AcceptTransaction is the internal function which implements the public
 // MaybeAcceptTransaction.  See the comment for MaybeAcceptTransaction for
 // more details.
 //

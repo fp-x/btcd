@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	
-	"github.com/btcsuite/btcd/mining"
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 )
@@ -75,7 +74,7 @@ func NewFeeEstimator(maxRollback uint32) *feeEstimator {
 }
 
 // ObserveTransaction is called when a new transaction is observed in the mempool. 
-func (ef *feeEstimator) ObserveTransaction(t *mining.TxDesc) {
+func (ef *feeEstimator) ObserveTransaction(t *mempoolTxDesc) {
 	ef.Lock()
 	defer ef.Unlock()
 	
