@@ -3656,7 +3656,11 @@ func handleVerifyMessage(s *rpcServer, cmd interface{}, closeChan <-chan struct{
 func handleEstimateFee(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
 	c := cmd.(*btcjson.EstimateFeeCmd)
 
-	return s.server.EstimateFee(c.NumBlocks)
+	if c.NumBlocks <= 0 {
+		return -1.0, errors.New("Parameter NumBlocks must be positive.")
+	}
+
+	return s.server.feeEstimator.EstimateFee(uint32(c.NumBlocks))
 }
 
 // rpcServer holds the items the rpc server may need to access (config,
