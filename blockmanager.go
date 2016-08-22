@@ -1216,9 +1216,9 @@ func (b *blockManager) handleNotifyMsg(notification *blockchain.Notification) {
 			b.server.AnnounceNewTransactions(acceptedTxs)
 		}
 
-		// Register block with the fee estimator, if it exists.
+		// Register block with the fee estimator if enabled.
 		if b.server.feeEstimator != nil {
-			b.server.feeEstimator.RecordBlock(block)
+			b.server.feeEstimator.RegisterBlock(block)
 		}
 
 		if r := b.server.rpcServer; r != nil {
@@ -1397,7 +1397,6 @@ func (b *blockManager) Pause() chan<- struct{} {
 // newBlockManager returns a new bitcoin block manager.
 // Use Start to begin processing asynchronous block and inv updates.
 func newBlockManager(s *server, indexManager blockchain.IndexManager) (*blockManager, error) {
-
 	bm := blockManager{
 		server:          s,
 		rejectedTxns:    make(map[chainhash.Hash]struct{}),
