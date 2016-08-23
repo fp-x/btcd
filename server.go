@@ -211,6 +211,10 @@ type server struct {
 	// do not need to be protected for concurrent access.
 	txIndex   *indexers.TxIndex
 	addrIndex *indexers.AddrIndex
+
+	// The fee estimator keeps track of how long transactions are left in
+	// the mempool before they are mined into blocks.
+	feeEstimator *mempool.FeeEstimator
 }
 
 // serverPeer extends the peer to maintain state shared by the server and
@@ -2476,6 +2480,7 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		timeSource:           blockchain.NewMedianTime(),
 		services:             services,
 		sigCache:             txscript.NewSigCache(cfg.SigCacheMaxSize),
+		feeEstimator:         mempool.NewFeeEstimator(2, 5),
 	}
 
 	// Create the transaction and address indexes if needed.
@@ -2531,6 +2536,7 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		SigCache:      s.sigCache,
 		TimeSource:    s.timeSource,
 		AddrIndex:     s.addrIndex,
+		FeeEstimator:  s.feeEstimator,
 	}
 	s.txMemPool = mempool.New(&txC)
 
