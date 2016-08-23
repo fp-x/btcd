@@ -852,7 +852,14 @@ func handleEstimateFee(s *rpcServer, cmd interface{}, closeChan <-chan struct{})
 		return -1.0, errors.New("Parameter NumBlocks must be positive.")
 	}
 
-	return s.server.feeEstimator.EstimateFee(uint32(c.NumBlocks))
+	feeRate, err := s.server.feeEstimator.EstimateFee(uint32(c.NumBlocks))
+
+	if err != nil {
+		return -1, err
+	}
+
+	// Convert to satoshis per kb.
+	return float64(feeRate.ToSatoshiPerKb()), nil
 }
 
 // handleGenerate handles generate commands.
