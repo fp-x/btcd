@@ -2002,6 +2002,13 @@ func (s *server) Stop() error {
 		s.rpcServer.Stop()
 	}
 
+	// Save fee estimator state in the database.
+	tx, err := s.db.Begin(true)
+	if err == nil {
+		metadata := tx.Metadata()
+		metadata.Put([]byte("estimatefee"), s.feeEstimator.Save())
+	}
+
 	// Signal the remaining goroutines to quit.
 	close(s.quit)
 	return nil
@@ -2310,7 +2317,31 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		timeSource:           blockchain.NewMedianTime(),
 		services:             services,
 		sigCache:             txscript.NewSigCache(cfg.SigCacheMaxSize),
-		feeEstimator:         mempool.NewFeeEstimator(2, 5),
+	}
+
+	// Search for a FeeEstimator state in the database. If none can be found
+	// or if it cannot be loaded, create a new one.
+	tx, err := db.Begin(true)
+	if err != nil {
+		return nil, err
+	}
+
+	key := []byte("estimatefee")
+	metadata := tx.Metadata()
+	feeEstimationData := metadata.Get(key)
+	if feeEstimationData != nil {
+
+		// delete it from the database so that we don't try to restore the
+		// same thing again somehow.
+		metadata.Delete(key)
+
+		// If there is an error just make a new fee estimator.
+		s.feeEstimator, _ = mempool.RestoreFeeEstimator(feeEstimationData)
+	}
+	tx.Commit()
+
+	if s.feeEstimator == nil {
+		s.feeEstimator = mempool.NewFeeEstimator(2, 5)
 	}
 
 	// Create the transaction and address indexes if needed.
