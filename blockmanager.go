@@ -1202,7 +1202,7 @@ func (b *blockManager) handleNotifyMsg(notification *blockchain.Notification) {
 
 		// Rollback previous block recorded by the fee estimator.
 		if b.server.feeEstimator != nil {
-			b.server.feeEstimator.Rollback(block)
+			b.server.feeEstimator.Rollback(block.Hash())
 		}
 
 		// Notify registered websocket clients.
