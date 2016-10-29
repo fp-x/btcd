@@ -139,6 +139,7 @@ var rpcHandlersBeforeInit = map[string]commandHandler{
 	"debuglevel":            handleDebugLevel,
 	"decoderawtransaction":  handleDecodeRawTransaction,
 	"decodescript":          handleDecodeScript,
+	"estimatefee":           handleEstimateFee,
 	"generate":              handleGenerate,
 	"getaddednodeinfo":      handleGetAddedNodeInfo,
 	"getbestblock":          handleGetBestBlock,
@@ -226,7 +227,6 @@ var rpcAskWallet = map[string]struct{}{
 
 // Commands that are currently unimplemented, but should ultimately be.
 var rpcUnimplemented = map[string]struct{}{
-	"estimatefee":       {},
 	"estimatepriority":  {},
 	"getblockchaininfo": {},
 	"getchaintips":      {},
@@ -253,6 +253,7 @@ var rpcLimited = map[string]struct{}{
 	"createrawtransaction":  {},
 	"decoderawtransaction":  {},
 	"decodescript":          {},
+	"estimatefee":           {},
 	"getbestblock":          {},
 	"getbestblockhash":      {},
 	"getblock":              {},
@@ -842,6 +843,22 @@ func handleDecodeScript(s *rpcServer, cmd interface{}, closeChan <-chan struct{}
 		reply.P2sh = p2sh.EncodeAddress()
 	}
 	return reply, nil
+}
+
+// handleEstimateFee handles estimatefee commands.
+func handleEstimateFee(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (interface{}, error) {
+	c := cmd.(*btcjson.EstimateFeeCmd)
+
+	if c.NumBlocks <= 0 {
+		return -1.0, errors.New("Parameter NumBlocks must be positive.")
+	}
+
+	feeRate, err := s.server.feeEstimator.EstimateFee(uint32(c.NumBlocks))
+	if err != nil {
+		return -1, err
+	}
+
+	return fmt.Sprintf("%.8f", float64(feeRate)), nil
 }
 
 // handleGenerate handles generate commands.
