@@ -22,8 +22,17 @@ const defaultTransactionAlloc = 2048
 // MaxBlocksPerMsg is the maximum number of blocks allowed per message.
 const MaxBlocksPerMsg = 500
 
-// MaxBlockPayload is the maximum bytes a block message can be in bytes.
-const MaxBlockPayload = 1000000 // Not actually 1MB which would be 1024 * 1024
+// MaxBlockPayloadMultiple is the multiple used to calculate the maximum
+// block size in bytes from ExcessiveBlock.
+const MaxBlockPayloadMultiple = 1000000 // Not actually 1MB which would be 1024 * 1024
+
+// ExcessiveBlock is the multiple of MaxDefaultBlockPayload that is accepted
+// as the maximum block size for BitcoinUnlimited blocks in this temporary
+// patch that partly implements BitcoinUnlimited.
+const ExcessiveBlock = 4
+
+// MaxBlockPayload is the maximum bytes a block message can be in this patch.
+const MaxBlockPayload = ExcessiveBlock * MaxBlockPayloadMultiple
 
 // maxTxPerBlock is the maximum number of transactions that could
 // possibly fit into a block.

@@ -1547,6 +1547,8 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 		Proxy:            cfg.Proxy,
 		UserAgentName:    userAgentName,
 		UserAgentVersion: userAgentVersion,
+		ExcessiveBlock:   wire.ExcessiveBlock,
+		AcceptDepth:      wire.AcceptDepth,
 		ChainParams:      sp.server.chainParams,
 		Services:         sp.server.services,
 		DisableRelayTx:   cfg.BlocksOnly,

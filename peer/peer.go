@@ -214,6 +214,15 @@ type Config struct {
 	// form "major.minor.revision" e.g. "2.6.41".
 	UserAgentVersion string
 
+	// ExcessiveBlock is the maximum allowed size of a block unless it has at
+	// least AcceptDepth confirmations.
+	ExcessiveBlock uint32
+
+	// AcceptDepth is a parameter in the BitcoinUnlimited protocol which
+	// specifies the number of confirmations an excessive block must have before
+	// it is accepted into the main chain.
+	AcceptDepth uint32
+
 	// ChainParams identifies which chain parameters the peer is associated
 	// with.  It is highly recommended to specify this field, however it can
 	// be omitted in which case the test network will be used.
@@ -806,7 +815,9 @@ func (p *Peer) localVersionMsg() (*wire.MsgVersion, error) {
 
 	// Version message.
 	msg := wire.NewMsgVersion(ourNA, theirNA, nonce, int32(blockNum))
-	msg.AddUserAgent(p.cfg.UserAgentName, p.cfg.UserAgentVersion)
+	msg.AddUserAgent(p.cfg.UserAgentName, p.cfg.UserAgentVersion,
+		fmt.Sprintf("EB%d", p.cfg.ExcessiveBlock),
+		fmt.Sprintf("AD%d", p.cfg.AcceptDepth))
 
 	// XXX: bitcoind appears to always enable the full node services flag
 	// of the remote peer netaddress field in the version message regardless
