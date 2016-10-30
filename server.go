@@ -1547,8 +1547,8 @@ func newPeerConfig(sp *serverPeer) *peer.Config {
 		Proxy:            cfg.Proxy,
 		UserAgentName:    userAgentName,
 		UserAgentVersion: userAgentVersion,
-		ExcessiveBlock:   wire.ExcessiveBlock,
-		AcceptDepth:      wire.AcceptDepth,
+		ExcessiveBlock:   cfg.ExcessiveBlock,
+		AcceptDepth:      cfg.AcceptDepth,
 		ChainParams:      sp.server.chainParams,
 		Services:         sp.server.services,
 		DisableRelayTx:   cfg.BlocksOnly,
@@ -2346,7 +2346,7 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 	if len(indexes) > 0 {
 		indexManager = indexers.NewManager(db, indexes)
 	}
-	bm, err := newBlockManager(&s, indexManager)
+	bm, err := newBlockManager(&s, indexManager, cfg)
 	if err != nil {
 		return nil, err
 	}

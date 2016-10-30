@@ -20,13 +20,6 @@ const MaxUserAgentLen = 256
 // DefaultUserAgent for wire in the stack
 const DefaultUserAgent = "/btcwire:0.5.0/"
 
-// AcceptDepth is the value reported in the version message giving the number
-// of confirmations a block must have, if it is bigger than
-// MaxBlockPayloadUnlimited, in order to be accepted as valid.
-// In reality, however, the true value is infinity because this patch
-// does not implement that behavior.
-const AcceptDepth = 99999
-
 // MsgVersion implements the Message interface and represents a bitcoin version
 // message.  It is used for a peer to advertise itself as soon as an outbound
 // connection is made.  The remote peer then uses this information along with

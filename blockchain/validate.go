@@ -20,8 +20,9 @@ import (
 
 const (
 	// MaxSigOpsPerBlock is the maximum number of signature operations
-	// allowed for a block.  It is a fraction of the max block payload size.
-	MaxSigOpsPerBlock = wire.MaxBlockPayload / 50
+	// allowed for a block.  It is a fraction of the max block payload size from
+	// earlier versions of btcd.
+	MaxSigOpsPerBlock = defaultMaxBlockSize / 50
 
 	// MaxTimeOffsetSeconds is the maximum number of seconds a block time
 	// is allowed to be ahead of the current time.  This is currently 2
@@ -221,9 +222,9 @@ func CheckTransactionSanity(tx *btcutil.Tx) error {
 	// A transaction must not exceed the maximum allowed block payload when
 	// serialized.
 	serializedTxSize := tx.MsgTx().SerializeSize()
-	if serializedTxSize > wire.MaxBlockPayload {
+	if serializedTxSize > wire.MaxMessagePayload {
 		str := fmt.Sprintf("serialized transaction is too big - got "+
-			"%d, max %d", serializedTxSize, wire.MaxBlockPayload)
+			"%d, max %d", serializedTxSize, wire.MaxMessagePayload)
 		return ruleError(ErrTxTooBig, str)
 	}
 
@@ -486,18 +487,18 @@ func checkBlockSanity(block *btcutil.Block, powLimit *big.Int, timeSource Median
 	}
 
 	// A block must not have more transactions than the max block payload.
-	if numTx > wire.MaxBlockPayload {
+	if numTx > wire.MaxMessagePayload {
 		str := fmt.Sprintf("block contains too many transactions - "+
-			"got %d, max %d", numTx, wire.MaxBlockPayload)
+			"got %d, max %d", numTx, wire.MaxMessagePayload)
 		return ruleError(ErrTooManyTransactions, str)
 	}
 
 	// A block must not exceed the maximum allowed block payload when
 	// serialized.
 	serializedSize := msgBlock.SerializeSize()
-	if serializedSize > wire.MaxBlockPayload {
+	if serializedSize > wire.MaxMessagePayload {
 		str := fmt.Sprintf("serialized block is too big - got %d, "+
-			"max %d", serializedSize, wire.MaxBlockPayload)
+			"max %d", serializedSize, wire.MaxMessagePayload)
 		return ruleError(ErrBlockTooBig, str)
 	}
 

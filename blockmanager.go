@@ -1331,7 +1331,7 @@ func (b *blockManager) Pause() chan<- struct{} {
 
 // newBlockManager returns a new bitcoin block manager.
 // Use Start to begin processing asynchronous block and inv updates.
-func newBlockManager(s *server, indexManager blockchain.IndexManager) (*blockManager, error) {
+func newBlockManager(s *server, indexManager blockchain.IndexManager, cfg *config) (*blockManager, error) {
 	bm := blockManager{
 		server:          s,
 		rejectedTxns:    make(map[chainhash.Hash]struct{}),
@@ -1346,12 +1346,14 @@ func newBlockManager(s *server, indexManager blockchain.IndexManager) (*blockMan
 	// Create a new block chain instance with the appropriate configuration.
 	var err error
 	bm.chain, err = blockchain.New(&blockchain.Config{
-		DB:            s.db,
-		ChainParams:   s.chainParams,
-		TimeSource:    s.timeSource,
-		Notifications: bm.handleNotifyMsg,
-		SigCache:      s.sigCache,
-		IndexManager:  indexManager,
+		DB:             s.db,
+		ChainParams:    s.chainParams,
+		TimeSource:     s.timeSource,
+		Notifications:  bm.handleNotifyMsg,
+		SigCache:       s.sigCache,
+		IndexManager:   indexManager,
+		ExcessiveBlock: cfg.ExcessiveBlock,
+		AcceptDepth:    cfg.AcceptDepth,
 	})
 	if err != nil {
 		return nil, err

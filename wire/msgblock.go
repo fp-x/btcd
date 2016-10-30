@@ -22,21 +22,9 @@ const defaultTransactionAlloc = 2048
 // MaxBlocksPerMsg is the maximum number of blocks allowed per message.
 const MaxBlocksPerMsg = 500
 
-// MaxBlockPayloadMultiple is the multiple used to calculate the maximum
-// block size in bytes from ExcessiveBlock.
-const MaxBlockPayloadMultiple = 1000000 // Not actually 1MB which would be 1024 * 1024
-
-// ExcessiveBlock is the multiple of MaxDefaultBlockPayload that is accepted
-// as the maximum block size for BitcoinUnlimited blocks in this temporary
-// patch that partly implements BitcoinUnlimited.
-const ExcessiveBlock = 4
-
-// MaxBlockPayload is the maximum bytes a block message can be in this patch.
-const MaxBlockPayload = ExcessiveBlock * MaxBlockPayloadMultiple
-
 // maxTxPerBlock is the maximum number of transactions that could
 // possibly fit into a block.
-const maxTxPerBlock = (MaxBlockPayload / minTxPayload) + 1
+const maxTxPerBlock = (MaxMessagePayload / minTxPayload) + 1
 
 // TxLoc holds locator data for the offset and length of where a transaction is
 // located within a MsgBlock data buffer.
@@ -232,7 +220,7 @@ func (msg *MsgBlock) MaxPayloadLength(pver uint32) uint32 {
 	// Block header at 80 bytes + transaction count + max transactions
 	// which can vary up to the MaxBlockPayload (including the block header
 	// and transaction count).
-	return MaxBlockPayload
+	return MaxMessagePayload
 }
 
 // BlockHash computes the block identifier hash for this block.

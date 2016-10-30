@@ -24,6 +24,10 @@ const (
 	// maxOrphanBlocks is the maximum number of orphan blocks that can be
 	// queued.
 	maxOrphanBlocks = 100
+
+	// defaultMaxBlockSize is the multiple used to calculate the maximum
+	// block size in bytes from ExcessiveBlock.
+	defaultMaxBlockSize = 1000000 // Not actually 1MB which would be 1024 * 1024
 )
 
 // blockNode represents a block within the block chain and is primarily used to
@@ -181,6 +185,13 @@ type BlockChain struct {
 	maxRetargetTimespan int64 // target timespan * adjustment factor
 	blocksPerRetarget   int32 // target timespan / target time per block
 	minMemoryNodes      int32
+
+	// excessiveBlock is the maximum block size allowed in the main chain
+	// unless it has at least acceptDepth confirmations.
+	//
+	// These fields are constant so don't need to be protected by the mutex.
+	excessiveBlockSize uint64
+	acceptDepth        uint32
 
 	// chainLock protects concurrent access to the vast majority of the
 	// fields in this struct below this point.
@@ -1611,6 +1622,16 @@ type Config struct {
 	// This field can be nil if the caller does not wish to make use of an
 	// index manager.
 	IndexManager IndexManager
+
+	// ExcessiveBlock is the maximum multiple a block is allowed to have
+	// of the default maximum, which is 1 mb. If a block is larger than that,
+	// it must have at least AcceptDepth confirmations before it is accepted
+	// into the main chain.
+	ExcessiveBlock uint32
+
+	// If the main chain has an excessive block and has at least AcceptDepth
+	// confirmations, it is accepted as part of the main chain.
+	AcceptDepth uint32
 }
 
 // New returns a BlockChain instance using the provided configuration details.
@@ -1645,6 +1666,8 @@ func New(config *Config) (*BlockChain, error) {
 		notifications:       config.Notifications,
 		sigCache:            config.SigCache,
 		indexManager:        config.IndexManager,
+		excessiveBlockSize:  uint64(config.ExcessiveBlock) * defaultMaxBlockSize,
+		acceptDepth:         config.AcceptDepth,
 		minRetargetTimespan: targetTimespan / adjustmentFactor,
 		maxRetargetTimespan: targetTimespan * adjustmentFactor,
 		blocksPerRetarget:   int32(targetTimespan / targetTimePerBlock),

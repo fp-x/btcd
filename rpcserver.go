@@ -1573,7 +1573,7 @@ func (state *gbtWorkState) blockTemplateResult(useCoinbaseValue bool, submitOld 
 		Height:       int64(template.Height),
 		PreviousHash: header.PrevBlock.String(),
 		SigOpLimit:   blockchain.MaxSigOpsPerBlock,
-		SizeLimit:    wire.MaxBlockPayload,
+		SizeLimit:    wire.MaxMessagePayload,
 		Transactions: transactions,
 		Version:      header.Version,
 		LongPollID:   templateID,
