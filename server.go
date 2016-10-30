@@ -2408,9 +2408,9 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		CalcSequenceLock: func(tx *btcutil.Tx, view *blockchain.UtxoViewpoint) (*blockchain.SequenceLock, error) {
 			return bm.chain.CalcSequenceLock(tx, view, true)
 		},
-		SigCache:         s.sigCache,
-		AddrIndex:        s.addrIndex,
-		FeeEstimator:     s.feeEstimator,
+		SigCache:     s.sigCache,
+		AddrIndex:    s.addrIndex,
+		FeeEstimator: s.feeEstimator,
 	}
 	s.txMemPool = mempool.New(&txC)
 
