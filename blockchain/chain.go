@@ -57,6 +57,9 @@ type blockNode struct {
 	// workSum is the total amount of work in the chain up to and including
 	// this node.
 	workSum *big.Int
+	
+	// size is the size of the block when serialized.
+	size uint64
 
 	// inMainChain denotes whether the block node is currently on the
 	// the main chain or not.  This is used to help find the common
@@ -69,11 +72,24 @@ type blockNode struct {
 	timestamp time.Time
 }
 
+// Whether an excessive block exists within depth blocks from this one.
+func (node *blockNode) excessiveChain(excessiveSize uint64, depth uint32) bool {
+	if depth == 0 {
+		return false
+	}
+	
+	if node.size > excessiveSize {
+		return true
+	}
+
+	return node.parent.excessiveChain(excessiveSize, depth-1)
+}
+
 // newBlockNode returns a new block node for the given block header.  It is
 // completely disconnected from the chain and the workSum value is just the work
 // for the passed block.  The work sum is updated accordingly when the node is
 // inserted into a chain.
-func newBlockNode(blockHeader *wire.BlockHeader, blockHash *chainhash.Hash, height int32) *blockNode {
+func newBlockNode(blockHeader *wire.BlockHeader, blockHash *chainhash.Hash, height int32, size uint64) *blockNode {
 	// Make a copy of the hash so the node doesn't keep a reference to part
 	// of the full block/block header preventing it from being garbage
 	// collected.
@@ -86,8 +102,15 @@ func newBlockNode(blockHeader *wire.BlockHeader, blockHash *chainhash.Hash, heig
 		version:    blockHeader.Version,
 		bits:       blockHeader.Bits,
 		timestamp:  blockHeader.Timestamp,
+		size:       size, 
 	}
 	return &node
+}
+
+// NewBlockNode returns a new block node from a block message.
+func NewBlockNode(block *btcutil.Block, height int32) *blockNode {
+	msg := block.MsgBlock()
+	return newBlockNode(&msg.Header, block.Hash(), height, uint64(msg.SerializeSize()))
 }
 
 // orphanBlock represents a block that we don't yet have the parent for.  It
@@ -413,9 +436,13 @@ func (b *BlockChain) loadBlockNode(dbTx database.Tx, hash *chainhash.Hash) (*blo
 	if err != nil {
 		return nil, err
 	}
+	blockSize, err := dbFetchSizeByHash(dbTx, hash)
+	if err != nil {
+		return nil, err
+	}
 
 	// Create the new block node for the block and set the work.
-	node := newBlockNode(blockHeader, hash, blockHeight)
+	node := newBlockNode(blockHeader, hash, blockHeight, blockSize)
 	node.inMainChain = true
 
 	// Add the node to the chain.
@@ -970,7 +997,7 @@ func (b *BlockChain) connectBlock(node *blockNode, block *btcutil.Block, view *U
 
 		// Add the block hash and height to the block index which tracks
 		// the main chain.
-		err = dbPutBlockIndex(dbTx, block.Hash(), node.height)
+		err = dbPutBlockIndex(dbTx, block.Hash(), node.height, node.size)
 		if err != nil {
 			return err
 		}
@@ -1383,10 +1410,14 @@ func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List, flags 
 func (b *BlockChain) connectBestChain(node *blockNode, block *btcutil.Block, flags BehaviorFlags) (bool, error) {
 	fastAdd := flags&BFFastAdd == BFFastAdd
 	dryRun := flags&BFDryRun == BFDryRun
+	
+	// If the block is bigger than excessiveBlockSize, then it is an
+	// excessive block.
+	excessive := uint64(block.MsgBlock().SerializeSize()) > b.excessiveBlockSize
 
 	// We are extending the main (best) chain with a new block.  This is the
 	// most common case.
-	if node.parentHash.IsEqual(b.bestNode.hash) {
+	if node.parentHash.IsEqual(b.bestNode.hash) && !excessive {
 		// Perform several checks to verify the block can be connected
 		// to the main chain without violating any rules and without
 		// actually connecting the block.
@@ -1466,8 +1497,10 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *btcutil.Block, fla
 	}
 
 	// We're extending (or creating) a side chain, but the cumulative
-	// work for this new side chain is not enough to make it the new chain.
-	if node.workSum.Cmp(b.bestNode.workSum) <= 0 {
+	// work for this new side chain is not enough to make it the new chain,
+	// or it is an excessive chain without enough confirmations to include
+	// in the main chain. 
+	if node.workSum.Cmp(b.bestNode.workSum) <= 0 || node.excessiveChain(b.excessiveBlockSize, b.acceptDepth) {
 		// Skip Logging info when the dry run flag is set.
 		if dryRun {
 			return false, nil

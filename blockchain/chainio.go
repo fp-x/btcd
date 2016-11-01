@@ -21,6 +21,10 @@ var (
 	// hashIndexBucketName is the name of the db bucket used to house to the
 	// block hash -> block height index.
 	hashIndexBucketName = []byte("hashidx")
+	
+	// sizeIndexBucketName is the name of the db bucket used to house to the
+	// block hash -> block height index.
+	sizeIndexBucketName = []byte("sizeidx")
 
 	// heightIndexBucketName is the name of the db bucket used to house to
 	// the block height -> block hash index.
@@ -875,10 +879,12 @@ func dbPutUtxoView(dbTx database.Tx, view *UtxoViewpoint) error {
 // dbPutBlockIndex uses an existing database transaction to update or add the
 // block index entries for the hash to height and height to hash mappings for
 // the provided values.
-func dbPutBlockIndex(dbTx database.Tx, hash *chainhash.Hash, height int32) error {
+func dbPutBlockIndex(dbTx database.Tx, hash *chainhash.Hash, height int32, size uint64) error {
 	// Serialize the height for use in the index entries.
 	var serializedHeight [4]byte
 	byteOrder.PutUint32(serializedHeight[:], uint32(height))
+	var serializedSize [4]byte
+	byteOrder.PutUint64(serializedSize[:], uint64(size))
 
 	// Add the block hash to height mapping to the index.
 	meta := dbTx.Metadata()
@@ -889,7 +895,13 @@ func dbPutBlockIndex(dbTx database.Tx, hash *chainhash.Hash, height int32) error
 
 	// Add the block height to hash mapping to the index.
 	heightIndex := meta.Bucket(heightIndexBucketName)
-	return heightIndex.Put(serializedHeight[:], hash[:])
+	if err := heightIndex.Put(serializedHeight[:], hash[:]); err != nil {
+		return err
+	}
+	
+	// Add the block hash to size mapping to the index. 
+	sizeIndex := meta.Bucket(sizeIndexBucketName)
+	return sizeIndex.Put(hash[:], serializedSize[:])
 }
 
 // dbRemoveBlockIndex uses an existing database transaction remove block index
@@ -907,7 +919,13 @@ func dbRemoveBlockIndex(dbTx database.Tx, hash *chainhash.Hash, height int32) er
 	var serializedHeight [4]byte
 	byteOrder.PutUint32(serializedHeight[:], uint32(height))
 	heightIndex := meta.Bucket(heightIndexBucketName)
-	return heightIndex.Delete(serializedHeight[:])
+	if err := heightIndex.Delete(serializedHeight[:]); err != nil {
+		return err
+	}
+	
+	// Remove the block hash to size mapping.
+	sizeIndex := meta.Bucket(sizeIndexBucketName)
+	return sizeIndex.Delete(hash[:])
 }
 
 // dbFetchHeightByHash uses an existing database transaction to retrieve the
@@ -922,6 +940,21 @@ func dbFetchHeightByHash(dbTx database.Tx, hash *chainhash.Hash) (int32, error) 
 	}
 
 	return int32(byteOrder.Uint32(serializedHeight)), nil
+}
+
+// dbFetchSizeByHash uses an existing database transaction to retrieve the
+// height for the provided hash from the index.
+func dbFetchSizeByHash(dbTx database.Tx, hash *chainhash.Hash) (uint64, error) {
+	meta := dbTx.Metadata()
+	hashIndex := meta.Bucket(sizeIndexBucketName)
+	serializedSize := hashIndex.Get(hash[:])
+	if serializedSize == nil {
+		//str := fmt.Sprintf("block %s is not in the main chain", hash)
+		//return 0, errNotInMainChain(str)
+		return 0, nil
+	}
+
+	return byteOrder.Uint64(serializedSize), nil
 }
 
 // dbFetchHashByHeight uses an existing database transaction to retrieve the
@@ -1050,8 +1083,7 @@ func dbPutBestState(dbTx database.Tx, snapshot *BestState, workSum *big.Int) err
 func (b *BlockChain) createChainState() error {
 	// Create a new node from the genesis block and set it as the best node.
 	genesisBlock := btcutil.NewBlock(b.chainParams.GenesisBlock)
-	header := &genesisBlock.MsgBlock().Header
-	node := newBlockNode(header, genesisBlock.Hash(), 0)
+	node := NewBlockNode(genesisBlock, 0)
 	node.inMainChain = true
 	b.bestNode = node
 
@@ -1082,6 +1114,12 @@ func (b *BlockChain) createChainState() error {
 		if err != nil {
 			return err
 		}
+		
+		// Create the bucket that houses the hash to block size index.
+		_, err = meta.CreateBucket(sizeIndexBucketName)
+		if err != nil {
+			return err
+		}
 
 		// Create the bucket that houses the spend journal data.
 		_, err = meta.CreateBucket(spendJournalBucketName)
@@ -1099,7 +1137,7 @@ func (b *BlockChain) createChainState() error {
 
 		// Add the genesis block hash to height and height to hash
 		// mappings to the index.
-		err = dbPutBlockIndex(dbTx, b.bestNode.hash, b.bestNode.height)
+		err = dbPutBlockIndex(dbTx, b.bestNode.hash, b.bestNode.height, b.bestNode.size)
 		if err != nil {
 			return err
 		}
@@ -1147,11 +1185,17 @@ func (b *BlockChain) initChainState() error {
 		if err != nil {
 			return err
 		}
+		
+		// Load the block size. 
+		size, err := dbFetchSizeByHash(dbTx, &state.hash)
+		if err != nil {
+			return err
+		}
 
 		// Create a new node and set it as the best node.  The preceding
 		// nodes will be loaded on demand as needed.
 		header := &block.Header
-		node := newBlockNode(header, &state.hash, int32(state.height))
+		node := newBlockNode(header, &state.hash, int32(state.height), size)
 		node.inMainChain = true
 		node.workSum = state.workSum
 		b.bestNode = node

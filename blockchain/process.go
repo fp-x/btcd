@@ -157,11 +157,6 @@ func (b *BlockChain) ProcessBlock(block *btcutil.Block, flags BehaviorFlags) (bo
 		return false, false, err
 	}
 
-	// Reject blocks larger than ExcessiveBlock
-	if uint64(block.MsgBlock().SerializeSize()) > b.excessiveBlockSize {
-		return false, false, ruleError(ErrBlockTooBig, "Excessive block")
-	}
-
 	// Find the previous checkpoint and perform some additional checks based
 	// on the checkpoint.  This provides a few nice properties such as
 	// preventing old side chain blocks before the last checkpoint,
