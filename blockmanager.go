@@ -1163,7 +1163,16 @@ func (b *blockManager) handleNotifyMsg(notification *blockchain.Notification) {
 
 		// Register block with the fee estimator if enabled.
 		if b.server.feeEstimator != nil {
-			b.server.feeEstimator.RegisterBlock(block)
+			err := b.server.feeEstimator.RegisterBlock(block)
+			
+			// If an error is somehow generated then the fee estimator
+			// has entered an invalid state. Since it doesn't know how
+			// to recover, create a new one.  
+			if err != nil {
+				b.server.feeEstimator = mempool.NewFeeEstimator(
+					mempool.DefaultEstimateFeeMaxRollback,
+					mempool.DefaultEstimateFeeMinRegisteredBlocks)
+			}
 		}
 
 		if r := b.server.rpcServer; r != nil {

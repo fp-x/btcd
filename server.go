@@ -2326,34 +2326,6 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		sigCache:             txscript.NewSigCache(cfg.SigCacheMaxSize),
 	}
 
-	// Search for a FeeEstimator state in the database. If none can be found
-	// or if it cannot be loaded, create a new one.
-	db.Update(func(tx database.Tx) error {
-		metadata := tx.Metadata()
-		feeEstimationData := metadata.Get(mempool.EstimateFeeDatabaseKey)
-		if feeEstimationData != nil {
-			// delete it from the database so that we don't try to restore the
-			// same thing again somehow.
-			metadata.Delete(mempool.EstimateFeeDatabaseKey)
-
-			// If there is an error, log it and make a new fee estimator.
-			var err error
-			s.feeEstimator, err = mempool.RestoreFeeEstimator(feeEstimationData)
-
-			if err != nil {
-				peerLog.Errorf("Failed restore fee estimator %v", err)
-			}
-		}
-
-		return nil
-	})
-
-	if s.feeEstimator == nil {
-		s.feeEstimator = mempool.NewFeeEstimator(
-			mempool.DefaultEstimateFeeMaxRollback,
-			mempool.DefaultEstimateFeeMinRegisteredBlocks)
-	}
-
 	// Create the transaction and address indexes if needed.
 	//
 	// CAUTION: the txindex needs to be first in the indexes array because
@@ -2391,6 +2363,36 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 		return nil, err
 	}
 	s.blockManager = bm
+
+	// Search for a FeeEstimator state in the database. If none can be found
+	// or if it cannot be loaded, create a new one.
+	db.Update(func(tx database.Tx) error {
+		metadata := tx.Metadata()
+		feeEstimationData := metadata.Get(mempool.EstimateFeeDatabaseKey)
+		if feeEstimationData != nil {
+			// delete it from the database so that we don't try to restore the
+			// same thing again somehow.
+			metadata.Delete(mempool.EstimateFeeDatabaseKey)
+
+			// If there is an error, log it and make a new fee estimator.
+			var err error
+			s.feeEstimator, err = mempool.RestoreFeeEstimator(feeEstimationData)
+
+			if err != nil {
+				peerLog.Errorf("Failed restore fee estimator %v", err)
+			}
+		}
+
+		return nil
+	})
+
+	// If no feeEstimator has been found, or if the one that has been found
+	// is behind somehow, create a new one and start over. 
+	if s.feeEstimator == nil || s.feeEstimator.LastKnownHeight() != s.blockManager.chain.BestSnapshot().Height {
+		s.feeEstimator = mempool.NewFeeEstimator(
+			mempool.DefaultEstimateFeeMaxRollback,
+			mempool.DefaultEstimateFeeMinRegisteredBlocks)
+	}
 
 	txC := mempool.Config{
 		Policy: mempool.Policy{
