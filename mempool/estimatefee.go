@@ -43,7 +43,7 @@ const (
 	// DefaultEstimateFeeMinRegisteredBlocks is the default minimum
 	// number of blocks which must be observed by the fee estimator before
 	// it will provide fee estimations.
-	DefaultEstimateFeeMinRegisteredBlocks = 5
+	DefaultEstimateFeeMinRegisteredBlocks = 3
 
 	bytePerKb = 1024
 
@@ -325,6 +325,14 @@ func (ef *FeeEstimator) RegisterBlock(block *btcutil.Block) error {
 	}
 
 	return nil
+}
+
+// LastKnownHeight returns the height of the last block which was registered.
+func (ef *FeeEstimator) LastKnownHeight() int32 {
+	ef.mtx.Lock()
+	defer ef.mtx.Unlock()
+	
+	return ef.lastKnownHeight
 }
 
 // Rollback unregisters a recently registered block from the FeeEstimator.
